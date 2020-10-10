@@ -1,28 +1,3 @@
-<template>
-  <div
-    :id="vmId"
-    :class="vmClass"
-    :tabindex="tabindex">
-    <slot>
-      <ViewCmp :id="'vl-' + id + '-default-view'" />
-    </slot>
-    <VectorLayerCmp
-      :id="'vl-' + id + '-default-layer'"
-      ref="featuresOverlay"
-      :overlay="true"
-      :update-while-animating="updateWhileAnimating"
-      :update-while-interacting="updateWhileInteracting">
-      <VectorSourceCmp
-        :id="'vl-' + id + '-default-source'"
-        ref="featuresOverlaySource"
-        :wrap-x="wrapX"
-        @created="onFeaturesOverlaySourceCreated">
-        <slot name="overlay" />
-      </VectorSourceCmp>
-    </VectorLayerCmp>
-  </div>
-</template>
-
 <script>
   import { Collection, Map, View } from 'ol'
   import MapBrowserEventType from 'ol/MapBrowserEventType'
@@ -52,7 +27,8 @@
   import {
     fromOlChangeEvent as obsFromOlChangeEvent,
     fromOlEvent as obsFromOlEvent,
-    fromVueEvent as obsFromVueEvent, fromVueWatcher as obsFromVueWatcher,
+    fromVueEvent as obsFromVueEvent,
+    fromVueWatcher as obsFromVueWatcher,
   } from '../../rx-ext'
   import {
     addPrefix,
@@ -575,6 +551,56 @@
         const removes = obsFromVueEvent(this, 'removefeature')
         this.subscribeTo(removes, ({ feature }) => sourceVm.removeFeature(feature))
       },
+    },
+    render (createElement) {
+      let customView = false
+      for (const vnode of (this.$slots.default || [])) {
+        if (
+          hasProp(vnode.componentInstance, '$viewContainer') &&
+          hasProp(vnode.componentInstance, '$view') &&
+          isFunction(vnode.componentInstance.resolveView)
+        ) {
+          customView = true
+          break
+        }
+      }
+
+      return createElement('div', {
+        class: this.vmClass,
+        attrs: {
+          id: this.vmId,
+          tabindex: this.tabindex,
+        },
+      }, [
+        ...(this.$slots.default || []),
+        ...(customView ? [] : [
+          createElement('ViewCmp', {
+            props: {
+              id: 'vl-' + this.id + '-default-view',
+            },
+          }),
+        ]),
+        createElement('VectorLayerCmp', {
+          ref: 'featuresOverlay',
+          props: {
+            id: 'vl-' + this.id + '-default-layer',
+            overlay: true,
+            updateWhileAnimating: this.updateWhileAnimating,
+            updateWhileInteracting: this.updateWhileInteracting,
+          },
+        }, [
+          createElement('VectorSourceCmp', {
+            ref: 'featuresOverlaySource',
+            props: {
+              id: 'vl-' + this.id + '-default-source',
+              wrapX: this.wrapX,
+            },
+            on: {
+              created: this.onFeaturesOverlaySourceCreated,
+            },
+          }, this.$slots.overlay),
+        ]),
+      ])
     },
   }
 
